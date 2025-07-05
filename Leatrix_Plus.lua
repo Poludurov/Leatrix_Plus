@@ -829,6 +829,32 @@ function LeaPlusLC:Live()
     else
         LpEvt:UnregisterEvent("CONFIRM_SUMMON");
     end
+	
+	----------------------------------------------------------------------
+	--	Automatic ready check
+	----------------------------------------------------------------------
+
+	if LeaPlusLC["AutoRCPress"] == "On" then
+		local function OnUpdate(self, elapsed)
+			if not self.rcElapsed then return end
+
+			self.rcElapsed = self.rcElapsed - elapsed
+			self:SetFormattedText('%s |cffffffff(%.1f)|r', READY, self.rcElapsed)
+
+			if self.rcElapsed <= 0 then
+				self:SetText(READY)
+				self:Click()
+				self.rcElapsed = nil
+			end
+		end
+
+		local function OnShow(self)
+			self.rcElapsed = 3
+		end
+
+		ReadyCheckFrameYesButton:HookScript("OnUpdate", OnUpdate)
+		ReadyCheckFrameYesButton:HookScript("OnShow", OnShow)
+	end
 
     ----------------------------------------------------------------------
     --	Disable loot warnings
@@ -913,7 +939,8 @@ function LeaPlusLC:Isolated()
     --	local muteTable = {
     --
     --		["MuteFizzle"] = {			"sound/spells/fizzle/fizzlefirea.ogg#569773", "sound/spells/fizzle/FizzleFrostA.ogg#569775", "sound/spells/fizzle/FizzleHolyA.ogg#569772", "sound/spells/fizzle/FizzleNatureA.ogg#569774", "sound/spells/fizzle/FizzleShadowA.ogg#569776",},
-    --		["MuteInterface"] = {		"sound/interface/iUiInterfaceButtonA.ogg#567481", "sound/interface/uChatScrollButton.ogg#567407", "sound/interface/uEscapeScreenClose.ogg#567464", "sound/interface/uEscapeScreenOpen.ogg#567490",},
+    --		["MuteInterface"] = {		"sound/interface/iUiInterfaceButtonA.ogg#567481", "sound/interface/uChatScrollButto
+	-- n.ogg#567407", "sound/interface/uEscapeScreenClose.ogg#567464", "sound/interface/uEscapeScreenOpen.ogg#567490",},
     --
     --		-- Trains
     --		["MuteTrains"] = {
@@ -1080,7 +1107,8 @@ function LeaPlusLC:Isolated()
     --		["MuteTravelers"] = {
     --
     --			-- Traveler's Tundra Mammoth (sound/creature/npcdraeneimalestandard, sound/creature/goblinmalezanynpc, sound/creature/trollfemalelaidbacknpc, sound/creature/trollfemalelaidbacknpc)
-    --			"npcdraeneimalestandardvendor01.ogg#557341", "npcdraeneimalestandardvendor02.ogg#557335", "npcdraeneimalestandardvendor03.ogg#557328", "npcdraeneimalestandardvendor04.ogg#557331", "npcdraeneimalestandardvendor05.ogg#557325", "npcdraeneimalestandardvendor06.ogg#557324",
+    --			"npcdraeneimalestandardvendor01.ogg#557341", "npcdraeneimalestandardvendor02.ogg#557335", "npcdraeneimalestandardvendor03.ogg#557328", "npcdraeneimalestandardvendor04.ogg#557331", "npcdraeneimalestandardvendor05.ogg#557325", "npcdraeneimalestandardven
+	-- 6.ogg#557324",
     --			"npcdraeneimalestandardfarewell01.ogg#557342", "npcdraeneimalestandardfarewell02.ogg#557326", "npcdraeneimalestandardfarewell03.ogg#557322", "npcdraeneimalestandardfarewell05.ogg#557332", "npcdraeneimalestandardfarewell06.ogg#557338", "npcdraeneimalestandardfarewell08.ogg#557334",
     --			"goblinmalezanynpcvendor01.ogg#550818", "goblinmalezanynpcvendor02.ogg#550817", "goblinmalezanynpcgreeting01.ogg#550805", "goblinmalezanynpcgreeting02.ogg#550813", "goblinmalezanynpcgreeting03.ogg#550819", "goblinmalezanynpcgreeting04.ogg#550806", "goblinmalezanynpcgreeting05.ogg#550820", "goblinmalezanynpcgreeting06.ogg#550809",
     --			"goblinmalezanynpcfarewell01.ogg#550807", "goblinmalezanynpcfarewell03.ogg#550808", "goblinmalezanynpcfarewell04.ogg#550812",
@@ -7618,45 +7646,45 @@ function LeaPlusLC:Player()
 
             --------------------------------------------------------------------------------
             -- Play Sound, code from ReadyCheckBgSound addon.
-            --------------------------------------------------------------------------------
+            -- --------------------------------------------------------------------------------
 
 
-            local frame = CreateFrame("Frame")
-            lasttime = GetTime()
+            -- local frame = CreateFrame("Frame")
+            -- lasttime = GetTime()
 
-            local function ReadyCheckBgSoundOnEvent(self, event, ...)
-                if (event == "LFG_PROPOSAL_SHOW" or event == "READY_CHECK") then
-                    ReadyCheckPlaySound()
+            -- local function ReadyCheckBgSoundOnEvent(self, event, ...)
+                -- if (event == "LFG_PROPOSAL_SHOW" or event == "READY_CHECK") then
+                    -- ReadyCheckPlaySound()
 
-                elseif (event == "UPDATE_BATTLEFIELD_STATUS") then
+                -- elseif (event == "UPDATE_BATTLEFIELD_STATUS") then
 
-                    for i = 1, MAX_BATTLEFIELD_QUEUES do
-                        status, mapName, instanceID, lowestlevel, highestlevel, teamSize, registeredMatch = GetBattlefieldStatus(i);
+                    -- for i = 1, MAX_BATTLEFIELD_QUEUES do
+                        -- status, mapName, instanceID, lowestlevel, highestlevel, teamSize, registeredMatch = GetBattlefieldStatus(i);
 
-                        if (status == "confirm") then
-                            ReadyCheckPlaySound()
-                            break
-                        end
-                        i = i + 1
-                    end
-                end
-            end
+                        -- if (status == "confirm") then
+                            -- ReadyCheckPlaySound()
+                            -- break
+                        -- end
+                        -- i = i + 1
+                    -- end
+                -- end
+            -- end
 
-            function ReadyCheckBgSoundOnLoad()
+            -- function ReadyCheckBgSoundOnLoad()
 
-            end
+            -- end
 
-            function ReadyCheckPlaySound()
-                if (GetTime() >= lasttime + 10) then
-                    lasttime = GetTime()
-                    PlaySoundFile("Sound\\Interface\\ReadyCheck.wav", "Master")
-                end
-            end
+            -- function ReadyCheckPlaySound()
+                -- if (GetTime() >= lasttime + 10) then
+                    -- lasttime = GetTime()
+                    -- PlaySoundFile("Sound\\Interface\\ReadyCheck.wav", "Master")
+                -- end
+            -- end
 
-            frame:RegisterEvent("LFG_PROPOSAL_SHOW");
-            frame:RegisterEvent("READY_CHECK");
-            frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS");
-            frame:SetScript("OnEvent", ReadyCheckBgSoundOnEvent)
+            -- frame:RegisterEvent("LFG_PROPOSAL_SHOW");
+            -- frame:RegisterEvent("READY_CHECK");
+            -- frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS");
+            -- frame:SetScript("OnEvent", ReadyCheckBgSoundOnEvent)
 
 
             --------------------------------------------------------------------------------
@@ -16960,6 +16988,7 @@ local function eventHandler(self, event, arg1, arg2, ...)
             LeaPlusLC:LoadVarNum("AutoQuestKeyMenu", 1, 1, 3)            -- Automate quests override key
             LeaPlusLC:LoadVarChk("AutomateGossip", "Off")                -- Automate gossip
             LeaPlusLC:LoadVarChk("AutoAcceptSummon", "Off")                -- Accept summon
+            LeaPlusLC:LoadVarChk("AutoRCPress", "Off")                -- Accept RC
             LeaPlusLC:LoadVarChk("AutoAcceptRes", "Off")                -- Accept resurrection
             LeaPlusLC:LoadVarChk("AutoResNoCombat", "On")                -- Accept resurrection exclude combat
             LeaPlusLC:LoadVarChk("AutoReleasePvP", "Off")                -- Release in PvP
@@ -17411,6 +17440,7 @@ local function eventHandler(self, event, arg1, arg2, ...)
         LeaPlusDB["AutoQuestKeyMenu"] = LeaPlusLC["AutoQuestKeyMenu"]
         LeaPlusDB["AutomateGossip"] = LeaPlusLC["AutomateGossip"]
         LeaPlusDB["AutoAcceptSummon"] = LeaPlusLC["AutoAcceptSummon"]
+		LeaPlusDB["AutoRCPress"] = LeaPlusLC["AutoRCPress"]
         LeaPlusDB["AutoAcceptRes"] = LeaPlusLC["AutoAcceptRes"]
         LeaPlusDB["AutoResNoCombat"] = LeaPlusLC["AutoResNoCombat"]
         LeaPlusDB["AutoReleasePvP"] = LeaPlusLC["AutoReleasePvP"]
@@ -19871,6 +19901,7 @@ function LeaPlusLC:SlashFunc(str)
             LeaPlusDB["AutoQuestKeyMenu"] = 1                -- Automate quests override key
             LeaPlusDB["AutomateGossip"] = "On"                -- Automate gossip
             LeaPlusDB["AutoAcceptSummon"] = "On"            -- Accept summon
+            LeaPlusDB["AutoRCPress"] = "On"          	  -- Accept RC
             LeaPlusDB["AutoAcceptRes"] = "On"                -- Accept resurrection
             LeaPlusDB["AutoReleasePvP"] = "On"                -- Release in PvP
             LeaPlusDB["AutoSpiritRes"] = "On"                -- Release in PvP
@@ -20355,9 +20386,10 @@ LeaPlusLC:MakeTx(LeaPlusLC[pg], "Character", 146, -72);
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutomateQuests", "Automate quests", 146, -92, false, "If checked, quests will be selected, accepted and turned-in automatically.|n|nQuests which have a gold requirement will not be turned-in automatically.")
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutomateGossip", "Automate gossip", 146, -112, false, "If checked, you can hold down the alt key while opening a gossip window to automatically select a single gossip item.|n|nIf the gossip item type is banker, taxi, trainer, vendor, battlemaster or stable master, gossip will be skipped without needing to hold the alt key.  You can hold the shift key down to prevent this.")
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutoAcceptSummon", "Accept summon", 146, -132, false, "If checked, summon requests will be accepted automatically unless you are in combat.")
-LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutoAcceptRes", "Accept resurrection", 146, -152, false, "If checked, resurrection requests will be accepted automatically.")
-LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutoReleasePvP", "Release in PvP", 146, -172, false, "If checked, you will release automatically after you die in a battleground.|n|nYou will not release automatically if you have the ability to self-resurrect.")
-LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutoSpiritRes", "Auto Spirit Res Confirm", 146, -192, false, "If checked, you will ressurect automatically after you talk to Spirit Healer.|n|nWarning: If you are higher than level 10, you will get ressurection sickness.")
+LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutoRCPress", "Accept ready check", 146, -152, false, "If checked, ready check will be accepted automatically.")
+LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutoAcceptRes", "Accept resurrection", 146, -172, false, "If checked, resurrection requests will be accepted automatically.")
+LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutoReleasePvP", "Release in PvP", 146, -192, false, "If checked, you will release automatically after you die in a battleground.|n|nYou will not release automatically if you have the ability to self-resurrect.")
+LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutoSpiritRes", "Auto Spirit Res Confirm", 146, -212, false, "If checked, you will ressurect automatically after you talk to Spirit Healer.|n|nWarning: If you are higher than level 10, you will get ressurection sickness.")
 
 LeaPlusLC:MakeTx(LeaPlusLC[pg], "Vendors", 340, -72);
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "AutoSellJunk", "Sell junk automatically", 340, -92, false, "If checked, all grey items in your bags will be sold automatically when you visit a merchant.|n|nYou can hold the shift key down when you talk to a merchant to override this setting.")
