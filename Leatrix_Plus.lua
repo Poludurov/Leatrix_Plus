@@ -10359,14 +10359,14 @@ function LeaPlusLC:Player()
     --	Enhance professions
     ----------------------------------------------------------------------
 
-    if LeaPlusLC["EnhanceProfessions"] == "On" and not LeaLockList["EnhanceProfessions"] then
+	if LeaPlusLC["EnhanceProfessions"] == "On" and not LeaLockList["EnhanceProfessions"] then
 
-        -- Set increased height of professions frame and maximum number of recipes listed
-        local tall, numTallProfs = 73, 19
+		-- Set increased height of professions frame and maximum number of recipes listed
+		local tall, numTallProfs = 73, 19
 
-        ----------------------------------------------------------------------
-        --	TradeSkill Frame
-        ----------------------------------------------------------------------
+		----------------------------------------------------------------------
+		--	TradeSkill Frame
+		----------------------------------------------------------------------
 
         local function TradeSkillFunc(frame)
 
@@ -10552,21 +10552,154 @@ function LeaPlusLC:Player()
 
         end
 
-        -- Run function when TradeSkill UI has loaded
-        if IsAddOnLoaded("Blizzard_TradeSkillUI") then
-            TradeSkillFunc("TradeSkill")
-        else
-            local waitFrame = CreateFrame("FRAME")
-            waitFrame:RegisterEvent("ADDON_LOADED")
-            waitFrame:SetScript("OnEvent", function(self, event, arg1)
-                if arg1 == "Blizzard_TradeSkillUI" then
-                    TradeSkillFunc("TradeSkill")
-                    waitFrame:UnregisterAllEvents()
-                end
-            end)
-        end
+		----------------------------------------------------------------------
+		--	TradeTabs - Profession Tabs
+		----------------------------------------------------------------------
+		local TradeTabs = CreateFrame("Frame", "TradeTabs")
 
-    end
+		-- Lists of profession spell IDs (order determines tab order)
+		local spells = {
+			28596, -- Alchemy
+			29844, -- Blacksmithing
+			28029, -- Enchanting
+			30350, -- Engineering
+			45357, -- Inscription
+			28897, -- Jewel Crafting
+			32549, -- Leatherworking
+			53428, -- Runeforging
+			2656,  -- Smelting
+			26790, -- Tailoring
+			33359, -- Cooking
+			27028, -- First Aid
+			13262, -- Disenchant
+			51005, -- Milling
+			31252, -- Prospecting
+			818,   -- Basic Campfire
+		}
+
+		-- Event handler
+		function TradeTabs:OnEvent(event, ...)
+			self:UnregisterEvent(event)
+			if not IsLoggedIn() then
+				self:RegisterEvent(event)
+			elseif InCombatLockdown() then
+				self:RegisterEvent("PLAYER_REGEN_ENABLED")
+			else
+				self:Initialize()
+			end
+		end
+
+		-- Initialize module
+		function TradeTabs:Initialize()
+			if self.initialized or not IsAddOnLoaded("Blizzard_TradeSkillUI") then return end
+			if IsAddOnLoaded("Skillet") then return end -- Skip if Skillet is loaded
+
+			for i = 1, #spells do
+				local n = GetSpellInfo(spells[i])
+				spells[n] = -1
+				spells[i] = n
+			end
+
+			local parent = TradeSkillFrame
+
+			for i = 1, MAX_SPELLS do
+				local n = GetSpellName(i, "spell")
+				if spells[n] then
+					spells[n] = i
+				end
+			end
+
+			local prev
+			for i, spell in ipairs(spells) do
+				local spellid = spells[spell]
+				if type(spellid) == "number" and spellid > 0 then
+					local tab = self:CreateTab(spell, spellid, parent)
+					local point, relPoint, x, y = "TOPLEFT", "BOTTOMLEFT", 0, -17
+					if not prev then
+						prev, relPoint, x, y = parent, "TOPRIGHT", -33, -44
+					end
+					tab:SetPoint(point, prev, relPoint, x, y)
+					prev = tab
+				end
+			end
+
+			self.initialized = true
+		end
+
+		do
+			local function onEnter(self)
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				GameTooltip:SetText(self.tooltip)
+				self:GetParent():LockHighlight()
+			end
+
+			local function onLeave(self)
+				GameTooltip:Hide()
+				self:GetParent():UnlockHighlight()
+			end
+
+			local function updateSelection(self)
+				if IsCurrentSpell(self.spellid, "spell") then
+					self:SetChecked(true)
+					self.clickStopper:Show()
+				else
+					self:SetChecked(false)
+					self.clickStopper:Hide()
+				end
+			end
+
+			local function createClickStopper(button)
+				local f = CreateFrame("Frame", nil, button)
+				f:SetAllPoints(button)
+				f:EnableMouse(true)
+				f:SetScript("OnEnter", onEnter)
+				f:SetScript("OnLeave", onLeave)
+				button.clickStopper = f
+				f.tooltip = button.tooltip
+				f:Hide()
+			end
+
+			function TradeTabs:CreateTab(spell, spellid, parent)
+				local button = CreateFrame("CheckButton", nil, parent, "SpellBookSkillLineTabTemplate,SecureActionButtonTemplate")
+				button.tooltip = spell
+				button:Show()
+				button:SetAttribute("type", "spell")
+				button:SetAttribute("spell", spell)
+				button.spellid = spellid
+				button:SetNormalTexture(GetSpellTexture(spellid, "spell"))
+
+				button:SetScript("OnEvent", updateSelection)
+				button:RegisterEvent("TRADE_SKILL_SHOW")
+				button:RegisterEvent("TRADE_SKILL_CLOSE")
+				button:RegisterEvent("CURRENT_SPELL_CAST_CHANGED")
+				createClickStopper(button)
+				updateSelection(button)
+				return button
+			end
+		end
+
+		TradeTabs:RegisterEvent("TRADE_SKILL_SHOW")
+		TradeTabs:SetScript("OnEvent", TradeTabs.OnEvent)
+
+		----------------------------------------------------------------------
+		--	Run enhancements after loading Blizzard_TradeSkillUI
+		----------------------------------------------------------------------
+		if IsAddOnLoaded("Blizzard_TradeSkillUI") then
+			TradeSkillFunc("TradeSkill")
+			TradeTabs:Initialize()
+		else
+			local waitFrame = CreateFrame("FRAME")
+			waitFrame:RegisterEvent("ADDON_LOADED")
+			waitFrame:SetScript("OnEvent", function(self, event, arg1)
+				if arg1 == "Blizzard_TradeSkillUI" then
+					TradeSkillFunc("TradeSkill")
+					TradeTabs:Initialize()
+					waitFrame:UnregisterAllEvents()
+				end
+			end)
+		end
+
+	end
 
     ----------------------------------------------------------------------
     --	Enhance quest log
