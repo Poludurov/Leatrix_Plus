@@ -711,6 +711,7 @@ function LeaPlusLC:ReloadCheck()
             or (LeaPlusLC["EnhanceTrainers"] ~= LeaPlusDB["EnhanceTrainers"])        -- Enhance trainers
             or (LeaPlusLC["ShowVolume"] ~= LeaPlusDB["ShowVolume"])                -- Show volume slider
             or (LeaPlusLC["AhExtras"] ~= LeaPlusDB["AhExtras"])                -- Show auction controls
+			or (LeaPlusLC["Armory&UwU"] ~= LeaPlusDB["Armory&UwU"])                -- buttons at rightclick menu
             -- or	(LeaPlusLC["ShowCooldowns"]			~= LeaPlusDB["ShowCooldowns"])			-- Show cooldowns
             or (LeaPlusLC["DurabilityStatus"] ~= LeaPlusDB["DurabilityStatus"])        -- Show durability status
             or (LeaPlusLC["ShowVanityControls"] ~= LeaPlusDB["ShowVanityControls"])        -- Show vanity controls
@@ -11841,6 +11842,53 @@ function LeaPlusLC:Player()
     end
 
     ----------------------------------------------------------------------
+    -- Armory&UwU buttons
+    ----------------------------------------------------------------------
+
+    if LeaPlusLC["Armory&UwU"] == "On" then
+		
+		local function ShowLinkPopup(url)
+			StaticPopup_Show("VIEW_ARMORY_LINK", nil, nil, {url = url})
+			print(url)
+		end
+
+		StaticPopupDialogs["VIEW_ARMORY_LINK"] = {
+			text = "CTRL+C to copy the link",
+			button1 = "Close",
+			hasEditBox = true,
+			timeout = 0,
+			whileDead = true,
+			hideOnEscape = true,
+			preferredIndex = 3,
+			OnShow = function(self, data)
+				self.editBox:SetText(data.url)
+				self.editBox:HighlightText()
+				self.editBox:SetFocus()
+			end
+		}
+
+		hooksecurefunc("UnitPopup_ShowMenu", function(dropdownMenu, which)
+			if UIDROPDOWNMENU_MENU_LEVEL > 1 or which == "TARGET" or which == "OTHERPET" then return end
+			local name = dropdownMenu.name
+			local realm = GetRealmName()
+			local info = UIDropDownMenu_CreateInfo()
+			info.notCheckable = true
+			info.text = "Armory"
+			info.colorCode = "|caaf49141"
+			info.func = function() 
+				ShowLinkPopup(("https://armory.warmane.com/character/%s/%s/"):format(name, realm)) 
+			end
+			UIDropDownMenu_AddButton(info)
+			info.text = "UwU Logs"
+			info.colorCode = "|cff1affa5"
+			info.func = function() 
+				ShowLinkPopup(("https://uwu-logs.xyz/character?name=%s&server=%s"):format(name, realm)) 
+			end
+			UIDropDownMenu_AddButton(info)
+		end)
+	end
+	
+    ----------------------------------------------------------------------
     -- Show volume control on character frame
     ----------------------------------------------------------------------
 
@@ -17110,6 +17158,7 @@ local function eventHandler(self, event, arg1, arg2, ...)
 
             LeaPlusLC:LoadVarChk("ShowVolume", "Off")                    -- Show volume slider
             LeaPlusLC:LoadVarChk("AhExtras", "Off")                        -- Show auction controls
+            LeaPlusLC:LoadVarChk("Armory&UwU", "Off")                        -- buttons at rightclick menu
             LeaPlusLC:LoadVarChk("AhBuyoutOnly", "Off")                    -- Auction buyout only
             LeaPlusLC:LoadVarChk("AhGoldOnly", "Off")                    -- Auction gold only
             LeaPlusLC:LoadVarChk("AhTabConfirm", "Off")                    -- Auction confirm on TAB pressed
@@ -17563,6 +17612,7 @@ local function eventHandler(self, event, arg1, arg2, ...)
 
         LeaPlusDB["ShowVolume"] = LeaPlusLC["ShowVolume"]
         LeaPlusDB["AhExtras"] = LeaPlusLC["AhExtras"]
+        LeaPlusDB["Armory&UwU"] = LeaPlusLC["Armory&UwU"]
         LeaPlusDB["AhBuyoutOnly"] = LeaPlusLC["AhBuyoutOnly"]
         LeaPlusDB["AhGoldOnly"] = LeaPlusLC["AhGoldOnly"]
         LeaPlusDB["AhTabConfirm"] = LeaPlusLC["AhTabConfirm"]
@@ -20000,6 +20050,7 @@ function LeaPlusLC:SlashFunc(str)
 
             LeaPlusDB["ShowVolume"] = "On"                    -- Show volume slider
             LeaPlusDB["AhExtras"] = "On"                    -- Show auction controls
+            LeaPlusDB["Armory&UwU"] = "On"                    -- Show auction controls
             -- LeaPlusDB["ShowCooldowns"] = "On"				-- Show cooldowns
             LeaPlusDB["DurabilityStatus"] = "On"            -- Show durability status
             LeaPlusDB["ShowVanityControls"] = "On"            -- Show vanity controls
@@ -20494,6 +20545,7 @@ LeaPlusLC:MakeCB(LeaPlusLC[pg], "EnhanceTrainers", "Enhance trainers", 146, -192
 LeaPlusLC:MakeTx(LeaPlusLC[pg], "Extras", 146, -232);
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "ShowVolume", "Show volume slider", 146, -252, true, "If checked, a master volume slider will be shown in the character frame.")
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "AhExtras", "Show auction controls", 146, -272, true, "If checked, additional functionality will be added to the auction house.|n|nBuyout only - create buyout auctions without filling in the starting price.|n|nGold only - set the copper and silver prices at 99 to speed up new auctions.|n|nFind item - search the auction house for the item you are selling.|n|nIn addition, the auction duration setting will be saved account-wide.", "New option: Tab Confirm.|nUse Tab instead of mouse to navigate and post items to AH - faster.")
+LeaPlusLC:MakeCB(LeaPlusLC[pg], "Armory&UwU", "Armory&UwU buttons", 146, -292, true, "If checked, creates buttons at rightclick menu to get an armory and logs links.")
 
 LeaPlusLC:MakeTx(LeaPlusLC[pg], "Extras", 340, -72);
 -- LeaPlusLC:MakeCB(LeaPlusLC[pg], "ShowCooldowns"				, 	"Show cooldowns"				, 	340, -92, 	true,	"If checked, you will be able to place up to five beneficial cooldown icons above the target frame.")
