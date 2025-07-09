@@ -13355,6 +13355,10 @@ function LeaPlusLC:Player()
             _G[chtfrm .. "Tab"].newglow:SetWidth(_G[chtfrm .. "Tab"]:GetWidth())
             _G[chtfrm .. "Tab"].newglow:SetVertexColor(0.6, 0.6, 1, 1)
             _G[chtfrm .. "Tab"].newglow:Hide()
+			
+			-- hiding chat tabs
+			_G.CHAT_FRAME_TAB_NORMAL_NOMOUSE_ALPHA = 0
+			_G.CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA = 0
 
             -- -- Show new bottom button when old one glows
             -- _G[chtfrm .. "ButtonFrameBottomButtonFlash"]:HookScript("OnShow", function(self,arg1)
@@ -13401,6 +13405,21 @@ function LeaPlusLC:Player()
                 end)
             end
         end)
+		
+		for i = 1, NUM_CHAT_WINDOWS do
+			local editBox = _G["ChatFrame"..i.."EditBox"]
+			if editBox then
+				editBox:SetAlpha(0) -- Start hidden
+				
+				editBox:HookScript("OnEditFocusGained", function(self)
+					self:SetAlpha(1) -- Show when typing
+				end)
+				
+				editBox:HookScript("OnEditFocusLost", function(self)
+					self:SetAlpha(0) -- Hide when done
+				end)
+			end
+		end
 
         -- Hide text to speech button
         -- TextToSpeechButton:SetParent(tframe)
