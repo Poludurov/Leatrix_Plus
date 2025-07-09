@@ -4913,16 +4913,16 @@ function LeaPlusLC:Player()
             LeaPlusLC['minimapFrameGlobal'] = minimapFrame
             minimapFrame:SetSize(1, 1)
             minimapFrame:SetPoint("BOTTOMRIGHT", Minimap, "BOTTOMLEFT", -2, -1.2)
-            minimapFrame:SetBackdrop({
-                bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-                edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-                tile = true,
-                tileSize = 16,
-                edgeSize = 3,
-                -- insets = { left = 4, right = 4, top = 4, bottom = 4 }
-            })
-            minimapFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.5)
-            minimapFrame:SetBackdropBorderColor(1, 1, 1, 0.5)
+            -- minimapFrame:SetBackdrop({
+                -- bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+                -- edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
+                -- tile = true,
+                -- tileSize = 16,
+                -- edgeSize = 3,
+                -- -- insets = { left = 4, right = 4, top = 4, bottom = 4 }
+            -- })
+            -- minimapFrame:SetBackdropColor(0.1, 0.1, 0.1, 0)
+            -- minimapFrame:SetBackdropBorderColor(1, 1, 1, 0)
 
 
             -- --===== Some code for testing - adds buttons to minimap =====--
@@ -5054,8 +5054,8 @@ function LeaPlusLC:Player()
 
             local function MoveMinimapChildren()
                 local buttonWidth = 34 -- adjust this value to match the width of your minimap buttons
-                local buttonSpacing = -6 -- adjust this value to match the spacing between your minimap buttons
-                local maxButtonsPerColumn = 5 -- maximum number of buttons per column
+                local buttonSpacing = -9 -- adjust this value to match the spacing between your minimap buttons
+                local maxButtonsPerColumn = 6 -- maximum number of buttons per column
                 local maxColumns = 3 -- maximum number of columns
 
                 -- not sure why i added it.
