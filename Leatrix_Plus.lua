@@ -721,7 +721,7 @@ function LeaPlusLC:ReloadCheck()
             or (LeaPlusLC["ShowReadyTimer"] ~= LeaPlusDB["ShowReadyTimer"])            -- Show ready timer
             or (LeaPlusLC["ShowWowheadLinks"] ~= LeaPlusDB["ShowWowheadLinks"])        -- Show Wowhead links
             or (LeaPlusLC["ShowFlightTimes"] ~= LeaPlusDB["ShowFlightTimes"])        -- Show flight times
-
+            or (LeaPlusLC["SpellAndItemID"] ~= LeaPlusDB["SpellAndItemID"])        -- Spell And Item ID'S (+buff used by)
             -- Frames
             or (LeaPlusLC["FrmEnabled"] ~= LeaPlusDB["FrmEnabled"])                -- Manage frames
             or (LeaPlusLC["ManageBuffs"] ~= LeaPlusDB["ManageBuffs"])            -- Manage buffs
@@ -8757,6 +8757,138 @@ function LeaPlusLC:Player()
 
     end
 
+    ----------------------------------------------------------------------
+    -- Spell And Item ID'S (+buff used by)
+    ----------------------------------------------------------------------
+
+    if LeaPlusLC["SpellAndItemID"] == "On" then
+	
+		local hooksecurefunc, select, UnitBuff, UnitDebuff, UnitAura, UnitGUID, GetGlyphSocketInfo, tonumber, strfind =
+			  hooksecurefunc, select, UnitBuff, UnitDebuff, UnitAura, UnitGUID, GetGlyphSocketInfo, tonumber, strfind
+		local types = {
+			spell       = "SpellID:",
+			aplied		= "Applied by:",
+			item        = "ItemID:",
+			unit        = "NPC ID:",
+			quest       = "QuestID:",
+			achievement = "AchievementID:",
+		};
+		if (GetLocale() == "ruRU") then
+			types.spell       = "ID заклинания:"
+			types.aplied      = "Наложено:"
+			types.item        = "ID предмета:"
+			types.unit        = "ID НПЦ:"
+			types.quest       = "ID задания:"
+			types.achievement = "ID достижения:"
+		end;
+		local function addLine(tooltip, id, type)
+			local found = false
+			for i = 1, 15 do
+				local frame = _G[tooltip:GetName() .. "TextLeft" .. i]
+				local text
+				if frame then text = frame:GetText() end
+				if text and text == type then found = true break end
+			end
+			if not found then
+				tooltip:AddDoubleLine(type, "|cffffffff" .. id)
+				tooltip:Show()
+			end	
+		end;
+		-- For Linked Tooltips --------------------------------------------------------
+		local function onSetHyperlink(self, link)
+			local type, id = string.match(link,"^(%a+):(%d+)")
+			if not type or not id then return end
+			if type == "spell" or type == "enchant" or type == "trade" then
+				addLine(self, id, types.spell)
+			elseif type == "quest" then
+				addLine(self, id, types.quest)
+			elseif type == "achievement" then
+				addLine(self, id, types.achievement)
+			elseif type == "item" then
+				addLine(self, id, types.item)
+			end
+		end;
+		hooksecurefunc(ItemRefTooltip, "SetHyperlink", onSetHyperlink)
+		hooksecurefunc(GameTooltip, "SetHyperlink", onSetHyperlink)
+		-- Spell Hooks ----------------------------------------------------------------
+		hooksecurefunc(GameTooltip, "SetUnitBuff", function(self, ...)
+			local id = select(11, UnitBuff(...))
+			local name = select(8, UnitBuff(...))
+			if id then addLine(self, id, types.spell) end
+			if name then 
+				local exactname = UnitName(name);
+				addLine(self, exactname, types.aplied, true);
+			end	
+		end);
+		hooksecurefunc(GameTooltip, "SetUnitDebuff", function(self,...)
+			local id = select(11, UnitDebuff(...))
+			local name = select(8, UnitDebuff(...))
+			if id then addLine(self, id, types.spell) end
+			if name then 
+				local exactname = UnitName(name);
+				addLine(self, exactname, types.aplied, true);
+			end	
+		end);
+		hooksecurefunc(GameTooltip, "SetUnitAura", function(self,...)
+			local id = select(11, UnitAura(...))
+			local name = select(8, UnitAura(...))
+			if id then addLine(self, id, types.spell) end
+			if name then 
+				local exactname = UnitName(name);
+				addLine(self, exactname, types.aplied, true);
+			end	
+		end);
+		hooksecurefunc("SetItemRef", function(link, ...)
+			local id = tonumber(link:match("spell:(%d+)"))
+			if id then addLine(ItemRefTooltip, id, types.spell) end
+		end);
+		GameTooltip:HookScript("OnTooltipSetSpell", function(self)
+			local id = select(3, self:GetSpell())
+			if id then addLine(self, id, types.spell) end
+		end);
+		-- NPCs Hooks ----------------------------------------------------------------
+		GameTooltip:HookScript("OnTooltipSetUnit", function(self)
+			local unit = select(2, self:GetUnit())
+			if unit then
+				local guid = UnitGUID(unit) or ""
+				local id   = tonumber((UnitGUID(unit)):sub(-10, -7), 16)
+				if id and guid:match("%a+") ~= "Player" then addLine(GameTooltip, id, types.unit) end
+			end
+		end);
+		-- Items Hooks ----------------------------------------------------------------
+		local function attachItemTooltip(self)
+			local link = select(2, self:GetItem())
+			if link then
+				local id = select(3, strfind(link, "^|%x+|Hitem:(%-?%d+):(%d+):(%d+).*"))
+				if id then addLine(self, id, types.item) end
+			end
+		end;
+		GameTooltip:HookScript("OnTooltipSetItem", attachItemTooltip)
+		ItemRefTooltip:HookScript("OnTooltipSetItem", attachItemTooltip)
+		ItemRefShoppingTooltip1:HookScript("OnTooltipSetItem", attachItemTooltip)
+		ItemRefShoppingTooltip2:HookScript("OnTooltipSetItem", attachItemTooltip)
+		ShoppingTooltip1:HookScript("OnTooltipSetItem", attachItemTooltip)
+		ShoppingTooltip2:HookScript("OnTooltipSetItem", attachItemTooltip)
+		-- Achievement Frame Hooks -----------------------------------------------------
+		local f = CreateFrame("frame")
+		f:RegisterEvent("ADDON_LOADED")
+		f:SetScript("OnEvent", function(_, _, what)
+		if what == "Blizzard_AchievementUI" then
+			for i,button in ipairs(AchievementFrameAchievementsContainer.buttons) do
+				button:HookScript("OnEnter", function()
+					GameTooltip:SetOwner(button, "ANCHOR_NONE")
+					GameTooltip:SetPoint("TOPLEFT", button, "TOPRIGHT", 0, 0)
+					addLine(GameTooltip, button.id, types.achievement)
+					GameTooltip:Show()
+				end)
+				button:HookScript("OnLeave", function()
+						GameTooltip:Hide()
+					end)
+				end
+			end
+		end)
+	end
+	
     ----------------------------------------------------------------------
     -- Filter chat messages
     ----------------------------------------------------------------------
@@ -17198,6 +17330,7 @@ local function eventHandler(self, event, arg1, arg2, ...)
             LeaPlusLC:LoadVarChk("WowheadLinkComments", "Off")            -- Show Wowhead links to comments
 
             LeaPlusLC:LoadVarChk("ShowFlightTimes", "Off")                -- Show flight times
+            LeaPlusLC:LoadVarChk("SpellAndItemID", "Off")                -- Spell And Item ID'S (+buff used by)
             LeaPlusLC:LoadVarChk("FlightBarBackground", "On")            -- Show flight times bar background
             LeaPlusLC:LoadVarChk("FlightBarDestination", "On")            -- Show flight times bar destination
             LeaPlusLC:LoadVarChk("FlightBarFillBar", "Off")                -- Show flight times bar fill mode
@@ -17652,6 +17785,7 @@ local function eventHandler(self, event, arg1, arg2, ...)
         LeaPlusDB["WowheadLinkComments"] = LeaPlusLC["WowheadLinkComments"]
 
         LeaPlusDB["ShowFlightTimes"] = LeaPlusLC["ShowFlightTimes"]
+        LeaPlusDB["SpellAndItemID"] = LeaPlusLC["SpellAndItemID"]
         LeaPlusDB["FlightBarBackground"] = LeaPlusLC["FlightBarBackground"]
         LeaPlusDB["FlightBarDestination"] = LeaPlusLC["FlightBarDestination"]
         LeaPlusDB["FlightBarFillBar"] = LeaPlusLC["FlightBarFillBar"]
@@ -20081,6 +20215,7 @@ function LeaPlusLC:SlashFunc(str)
             LeaPlusDB["ShowWowheadLinks"] = "On"            -- Show Wowhead links
             LeaPlusDB["WowheadLinkComments"] = "On"            -- Show Wowhead links to comments
             LeaPlusDB["ShowFlightTimes"] = "On"                -- Show flight times
+            LeaPlusDB["SpellAndItemID"] = "On"                -- Spell And Item ID'S (+buff used by)
             LeaPlusDB["FlightBarBackground"] = "Off"        -- Show flight times bar background
             LeaPlusDB["FlightBarDestination"] = "On"        -- Show flight times bar destination
             LeaPlusDB["FlightBarFillBar"] = "Off"            -- Show flight times bar fill mode
@@ -20576,6 +20711,7 @@ LeaPlusLC:MakeCB(LeaPlusLC[pg], "ShowPlayerChain", "Show player chain", 340, -19
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "ShowReadyTimer", "Show ready timer", 340, -212, true, "If checked, a timer will be shown under the PvP encounter ready frame so that you know how long you have left to click the enter button.")
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "ShowWowheadLinks", "Show Wowhead links", 340, -232, true, "If checked, Wowhead links will be shown in the world map frame and the achievements frame.")
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "ShowFlightTimes", "Show flight times", 340, -252, true, "If checked, flight times will be shown in the flight map and when you take a flight.")
+LeaPlusLC:MakeCB(LeaPlusLC[pg], "SpellAndItemID", "Spell and item ID's", 340, -272, true, "If checked, spell and item ID's and buff applier will be shown in the tooltip.")
 
 LeaPlusLC:CfgBtn("ModMinimapBtn", LeaPlusCB["MinimapModder"])
 LeaPlusLC:CfgBtn("MoveTooltipButton", LeaPlusCB["TipModEnable"])
