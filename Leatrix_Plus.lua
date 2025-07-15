@@ -10428,6 +10428,246 @@ function LeaPlusLC:Player()
         end
 
     end
+	
+    ----------------------------------------------------------------------
+    -- Improved Loot Frame
+    ----------------------------------------------------------------------
+
+	if LeaPlusLC["ImprovedLootFrame"] == "On" then
+		-- Store original functions
+		local Old_LootFrame_Show = LootFrame_Show
+		local Old_LootButton_OnClick = LootButton_OnClick
+
+		-- Weak Table implementation
+		local wipe = wipe or table.wipe
+		local weaktable = {__mode = "v"}
+		local function WeakTable(t)
+			return setmetatable(wipe(t or {}), weaktable)
+		end
+		
+		local tablePool = setmetatable({}, {__mode = "kv"})
+		
+		local function newTable()
+			local t = next(tablePool) or {}
+			tablePool[t] = nil
+			return t
+		end
+		
+		local function delTable(t)
+			if type(t) == "table" then
+				wipe(t)
+				t[true] = true
+				t[true] = nil
+				tablePool[t] = true
+			end
+			return nil
+		end
+
+		-- Color handling
+		local RAID_CLASS_COLORS = RAID_CLASS_COLORS
+		local hexColors = {}
+		for k, v in pairs(RAID_CLASS_COLORS) do
+			hexColors[k] = format("|cff%02x%02x%02x", v.r * 255, v.g * 255, v.b * 255)
+		end
+		hexColors.UNKNOWN = format("|cff%02x%02x%02x", 0.6 * 255, 0.6 * 255, 0.6 * 255)
+
+		if CUSTOM_CLASS_COLORS then
+			local function update()
+				for k, v in pairs(CUSTOM_CLASS_COLORS) do
+					hexColors[k] = ("|cff%02x%02x%02x"):format(v.r * 255, v.g * 255, v.b * 255)
+				end
+			end
+			CUSTOM_CLASS_COLORS:RegisterCallback(update)
+			update()
+		end
+
+		-- Master Looter Menu
+		local function ILF_InitializeMenu()
+			local candidate, info
+			local classesInRaid = WeakTable({})
+			local randoms = newTable()
+
+			if UIDROPDOWNMENU_MENU_LEVEL == 2 then
+				for i = 1, 40 do
+					candidate = GetMasterLootCandidate(i)
+					if candidate then
+						local class = select(2, UnitClass(candidate))
+						if class == UIDROPDOWNMENU_MENU_VALUE then
+							info = UIDropDownMenu_CreateInfo()
+							info.text = candidate
+							info.colorCode = hexColors[class] or hexColors.UNKNOWN
+							info.textHeight = 12
+							info.value = i
+							info.func = GroupLootDropDown_GiveLoot
+							UIDropDownMenu_AddButton(info, UIDROPDOWNMENU_MENU_LEVEL)
+						end
+					end
+				end
+				return
+			end
+
+			info = UIDropDownMenu_CreateInfo()
+			info.isTitle = true
+			info.text = GIVE_LOOT
+			info.textHeight = 12
+			info.notCheckable = true
+			UIDropDownMenu_AddButton(info, UIDROPDOWNMENU_MENU_LEVEL)
+
+			if GetNumRaidMembers() > 0 then
+				for i = 1, 40 do
+					candidate = GetMasterLootCandidate(i)
+					if candidate then
+						local cname, class = UnitClass(candidate)
+						classesInRaid[class] = cname
+					end
+				end
+
+				for k, v in pairs(classesInRaid) do
+					info = UIDropDownMenu_CreateInfo()
+					info.text = v
+					info.colorCode = hexColors[k] or hexColors.UNKNOWN
+					info.textHeight = 12
+					info.hasArrow = true
+					info.notCheckable = true
+					info.value = k
+					UIDropDownMenu_AddButton(info)
+				end
+			else
+				for i = 1, MAX_PARTY_MEMBERS + 1 do
+					candidate = GetMasterLootCandidate(i)
+					if candidate then
+						info = UIDropDownMenu_CreateInfo()
+						info.text = candidate
+						info.colorCode = hexColors[select(2, UnitClass(candidate))] or hexColors.UNKNOWN
+						info.textHeight = 12
+						info.value = i
+						info.notCheckable = true
+						info.func = GroupLootDropDown_GiveLoot
+						UIDropDownMenu_AddButton(info)
+					end
+				end
+			end
+
+			for i = 1, 40 do
+				candidate = GetMasterLootCandidate(i)
+				if candidate then
+					tinsert(randoms, i)
+				end
+			end
+			if #randoms > 0 then
+				info = UIDropDownMenu_CreateInfo()
+				info.colorCode = "|cffffffff"
+				info.textHeight = 12
+				info.value = randoms[random(1, #randoms)]
+				info.notCheckable = 1
+				info.text = "Random"
+				info.func = GroupLootDropDown_GiveLoot
+				UIDropDownMenu_AddButton(info)
+			end
+			delTable(randoms)
+
+			for i = 1, 40 do
+				candidate = GetMasterLootCandidate(i)
+				if candidate and candidate == UnitName("player") then
+					info = UIDropDownMenu_CreateInfo()
+					info.colorCode = hexColors[select(2, UnitClass("player"))] or hexColors.UNKNOWN
+					info.textHeight = 12
+					info.value = i
+					info.notCheckable = 1
+					info.text = "Self Loot"
+					info.func = GroupLootDropDown_GiveLoot
+					UIDropDownMenu_AddButton(info)
+					break
+				end
+			end
+		end
+
+		-- LootFrame_Show replacement
+		local function ILF_LootFrame_Show(self, ...)
+			local p, r, x, y = "TOP", "BOTTOM", 0, -4
+			local buttonHeight = LootButton1:GetHeight() + abs(y)
+			local baseHeight = 144 -- Fixed base height that works
+			
+			local numItems = GetNumLootItems()
+			local newHeight = baseHeight + (numItems > 0 and (buttonHeight * (numItems - 1)) or 0)
+			
+			LootFrame:SetHeight(math.max(newHeight, baseHeight))
+			
+			for i = 1, numItems do
+				local button = _G["LootButton"..i] or CreateFrame("Button", "LootButton"..i, LootFrame, "LootButtonTemplate", i)
+				if i > LOOTFRAME_NUMBUTTONS then
+					LOOTFRAME_NUMBUTTONS = i
+				end
+				if i > 1 then
+					button:ClearAllPoints()
+					button:SetPoint(p, "LootButton"..(i-1), r, x, y)
+				end
+			end
+			
+			return Old_LootFrame_Show(self, ...)
+		end
+
+		-- LootButton_OnClick replacement
+		local function ILF_LootButton_OnClick(self, ...)
+			local frames = {}
+			for i, frame in ipairs({GetFramesRegisteredForEvent("ADDON_ACTION_BLOCKED")}) do
+				frames[i] = frame
+				frame:UnregisterEvent("ADDON_ACTION_BLOCKED")
+			end
+
+			Old_LootButton_OnClick(self, ...)
+			
+			for _, frame in ipairs(frames) do
+				frame:RegisterEvent("ADDON_ACTION_BLOCKED")
+			end
+		end
+
+		-- Initialize the module
+		local function ILF_Initialize()
+			if IsAddOnLoaded("LovelyLoot") then return end
+			
+			-- Modify loot frame appearance
+			local i, t = 1, "Interface\\LootFrame\\UI-LootPanel"
+			while true do
+				local r = select(i, LootFrame:GetRegions())
+				if not r then break end
+				if r.GetText and r:GetText() == ITEMS then
+					r:ClearAllPoints()
+					r:SetPoint("TOP", -12, -19.5)
+				elseif r.GetTexture and r:GetTexture() == t then
+					r:Hide()
+				end
+				i = i + 1
+			end
+
+			-- Create new textures
+			local top = LootFrame:CreateTexture("LootFrameBackdropTop")
+			top:SetTexture(t)
+			top:SetTexCoord(0, 1, 0, 0.3046875)
+			top:SetPoint("TOP")
+			top:SetHeight(78)
+
+			local bottom = LootFrame:CreateTexture("LootFrameBackdropBottom")
+			bottom:SetTexture(t)
+			bottom:SetTexCoord(0, 1, 0.9296875, 1)
+			bottom:SetPoint("BOTTOM")
+			bottom:SetHeight(18)
+
+			local mid = LootFrame:CreateTexture("LootFrameBackdropMiddle")
+			mid:SetTexture(t)
+			mid:SetTexCoord(0, 1, 0.3046875, 0.9296875)
+			mid:SetPoint("TOP", top, "BOTTOM")
+			mid:SetPoint("BOTTOM", bottom, "TOP")
+
+			-- Hook functions
+			_G.LootFrame_Show = ILF_LootFrame_Show
+			_G.LootButton_OnClick = ILF_LootButton_OnClick
+			UIDropDownMenu_Initialize(GroupLootDropDown, ILF_InitializeMenu)
+		end
+
+		-- Initialize when the option is enabled
+		ILF_Initialize()
+	end
 
     ----------------------------------------------------------------------
     --	Set weather density (no reload required)
@@ -12508,246 +12748,6 @@ function LeaPlusLC:Player()
 
     end
 
-    ----------------------------------------------------------------------
-    -- Improved Loot Frame
-    ----------------------------------------------------------------------
-
-	if LeaPlusLC["ImprovedLootFrame"] == "On" then
-		-- Store original functions
-		local Old_LootFrame_Show = LootFrame_Show
-		local Old_LootButton_OnClick = LootButton_OnClick
-
-		-- Weak Table implementation
-		local wipe = wipe or table.wipe
-		local weaktable = {__mode = "v"}
-		local function WeakTable(t)
-			return setmetatable(wipe(t or {}), weaktable)
-		end
-		
-		local tablePool = setmetatable({}, {__mode = "kv"})
-		
-		local function newTable()
-			local t = next(tablePool) or {}
-			tablePool[t] = nil
-			return t
-		end
-		
-		local function delTable(t)
-			if type(t) == "table" then
-				wipe(t)
-				t[true] = true
-				t[true] = nil
-				tablePool[t] = true
-			end
-			return nil
-		end
-
-		-- Color handling
-		local RAID_CLASS_COLORS = RAID_CLASS_COLORS
-		local hexColors = {}
-		for k, v in pairs(RAID_CLASS_COLORS) do
-			hexColors[k] = format("|cff%02x%02x%02x", v.r * 255, v.g * 255, v.b * 255)
-		end
-		hexColors.UNKNOWN = format("|cff%02x%02x%02x", 0.6 * 255, 0.6 * 255, 0.6 * 255)
-
-		if CUSTOM_CLASS_COLORS then
-			local function update()
-				for k, v in pairs(CUSTOM_CLASS_COLORS) do
-					hexColors[k] = ("|cff%02x%02x%02x"):format(v.r * 255, v.g * 255, v.b * 255)
-				end
-			end
-			CUSTOM_CLASS_COLORS:RegisterCallback(update)
-			update()
-		end
-
-		-- Master Looter Menu
-		local function ILF_InitializeMenu()
-			local candidate, info
-			local classesInRaid = WeakTable({})
-			local randoms = newTable()
-
-			if UIDROPDOWNMENU_MENU_LEVEL == 2 then
-				for i = 1, 40 do
-					candidate = GetMasterLootCandidate(i)
-					if candidate then
-						local class = select(2, UnitClass(candidate))
-						if class == UIDROPDOWNMENU_MENU_VALUE then
-							info = UIDropDownMenu_CreateInfo()
-							info.text = candidate
-							info.colorCode = hexColors[class] or hexColors.UNKNOWN
-							info.textHeight = 12
-							info.value = i
-							info.func = GroupLootDropDown_GiveLoot
-							UIDropDownMenu_AddButton(info, UIDROPDOWNMENU_MENU_LEVEL)
-						end
-					end
-				end
-				return
-			end
-
-			info = UIDropDownMenu_CreateInfo()
-			info.isTitle = true
-			info.text = GIVE_LOOT
-			info.textHeight = 12
-			info.notCheckable = true
-			UIDropDownMenu_AddButton(info, UIDROPDOWNMENU_MENU_LEVEL)
-
-			if GetNumRaidMembers() > 0 then
-				for i = 1, 40 do
-					candidate = GetMasterLootCandidate(i)
-					if candidate then
-						local cname, class = UnitClass(candidate)
-						classesInRaid[class] = cname
-					end
-				end
-
-				for k, v in pairs(classesInRaid) do
-					info = UIDropDownMenu_CreateInfo()
-					info.text = v
-					info.colorCode = hexColors[k] or hexColors.UNKNOWN
-					info.textHeight = 12
-					info.hasArrow = true
-					info.notCheckable = true
-					info.value = k
-					UIDropDownMenu_AddButton(info)
-				end
-			else
-				for i = 1, MAX_PARTY_MEMBERS + 1 do
-					candidate = GetMasterLootCandidate(i)
-					if candidate then
-						info = UIDropDownMenu_CreateInfo()
-						info.text = candidate
-						info.colorCode = hexColors[select(2, UnitClass(candidate))] or hexColors.UNKNOWN
-						info.textHeight = 12
-						info.value = i
-						info.notCheckable = true
-						info.func = GroupLootDropDown_GiveLoot
-						UIDropDownMenu_AddButton(info)
-					end
-				end
-			end
-
-			for i = 1, 40 do
-				candidate = GetMasterLootCandidate(i)
-				if candidate then
-					tinsert(randoms, i)
-				end
-			end
-			if #randoms > 0 then
-				info = UIDropDownMenu_CreateInfo()
-				info.colorCode = "|cffffffff"
-				info.textHeight = 12
-				info.value = randoms[random(1, #randoms)]
-				info.notCheckable = 1
-				info.text = "Random"
-				info.func = GroupLootDropDown_GiveLoot
-				UIDropDownMenu_AddButton(info)
-			end
-			delTable(randoms)
-
-			for i = 1, 40 do
-				candidate = GetMasterLootCandidate(i)
-				if candidate and candidate == UnitName("player") then
-					info = UIDropDownMenu_CreateInfo()
-					info.colorCode = hexColors[select(2, UnitClass("player"))] or hexColors.UNKNOWN
-					info.textHeight = 12
-					info.value = i
-					info.notCheckable = 1
-					info.text = "Self Loot"
-					info.func = GroupLootDropDown_GiveLoot
-					UIDropDownMenu_AddButton(info)
-					break
-				end
-			end
-		end
-
-		-- LootFrame_Show replacement
-		local function ILF_LootFrame_Show(self, ...)
-			local p, r, x, y = "TOP", "BOTTOM", 0, -4
-			local buttonHeight = LootButton1:GetHeight() + abs(y)
-			local baseHeight = 144 -- Fixed base height that works
-			
-			local numItems = GetNumLootItems()
-			local newHeight = baseHeight + (numItems > 0 and (buttonHeight * (numItems - 1)) or 0)
-			
-			LootFrame:SetHeight(math.max(newHeight, baseHeight))
-			
-			for i = 1, numItems do
-				local button = _G["LootButton"..i] or CreateFrame("Button", "LootButton"..i, LootFrame, "LootButtonTemplate", i)
-				if i > LOOTFRAME_NUMBUTTONS then
-					LOOTFRAME_NUMBUTTONS = i
-				end
-				if i > 1 then
-					button:ClearAllPoints()
-					button:SetPoint(p, "LootButton"..(i-1), r, x, y)
-				end
-			end
-			
-			return Old_LootFrame_Show(self, ...)
-		end
-
-		-- LootButton_OnClick replacement
-		local function ILF_LootButton_OnClick(self, ...)
-			local frames = {}
-			for i, frame in ipairs({GetFramesRegisteredForEvent("ADDON_ACTION_BLOCKED")}) do
-				frames[i] = frame
-				frame:UnregisterEvent("ADDON_ACTION_BLOCKED")
-			end
-
-			Old_LootButton_OnClick(self, ...)
-			
-			for _, frame in ipairs(frames) do
-				frame:RegisterEvent("ADDON_ACTION_BLOCKED")
-			end
-		end
-
-		-- Initialize the module
-		local function ILF_Initialize()
-			if IsAddOnLoaded("LovelyLoot") then return end
-			
-			-- Modify loot frame appearance
-			local i, t = 1, "Interface\\LootFrame\\UI-LootPanel"
-			while true do
-				local r = select(i, LootFrame:GetRegions())
-				if not r then break end
-				if r.GetText and r:GetText() == ITEMS then
-					r:ClearAllPoints()
-					r:SetPoint("TOP", -12, -19.5)
-				elseif r.GetTexture and r:GetTexture() == t then
-					r:Hide()
-				end
-				i = i + 1
-			end
-
-			-- Create new textures
-			local top = LootFrame:CreateTexture("LootFrameBackdropTop")
-			top:SetTexture(t)
-			top:SetTexCoord(0, 1, 0, 0.3046875)
-			top:SetPoint("TOP")
-			top:SetHeight(78)
-
-			local bottom = LootFrame:CreateTexture("LootFrameBackdropBottom")
-			bottom:SetTexture(t)
-			bottom:SetTexCoord(0, 1, 0.9296875, 1)
-			bottom:SetPoint("BOTTOM")
-			bottom:SetHeight(18)
-
-			local mid = LootFrame:CreateTexture("LootFrameBackdropMiddle")
-			mid:SetTexture(t)
-			mid:SetTexCoord(0, 1, 0.3046875, 0.9296875)
-			mid:SetPoint("TOP", top, "BOTTOM")
-			mid:SetPoint("BOTTOM", bottom, "TOP")
-
-			-- Hook functions
-			_G.LootFrame_Show = ILF_LootFrame_Show
-			_G.LootButton_OnClick = ILF_LootButton_OnClick
-			UIDropDownMenu_Initialize(GroupLootDropDown, ILF_InitializeMenu)
-		end
-
-		-- Initialize when the option is enabled
-		ILF_Initialize()
-	end
-	
     ----------------------------------------------------------------------
     -- L42: Manage frames
     ----------------------------------------------------------------------
