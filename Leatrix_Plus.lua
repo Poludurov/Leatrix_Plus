@@ -652,6 +652,7 @@ function LeaPlusLC:SetDim()
     LeaPlusLC:LockOption("ManageTracker", "ManageTrackerButton", true)    -- Manage Tracker
 
     LeaPlusLC:LockOption("ManageVehicle", "ManageVehicleButton", true)            -- Manage vehicle
+    LeaPlusLC:LockOption("ManageGLF", "ManageGLFButton", true)            -- Manage group loot frame
     LeaPlusLC:LockOption("ClassColFrames", "ClassColFramesBtn", true)            -- Class colored frames
     LeaPlusLC:LockOption("SetWeatherDensity", "SetWeatherDensityBtn", false)    -- Set weather density
     LeaPlusLC:LockOption("ViewPortEnable", "ModViewportBtn", true)                -- Enable viewport
@@ -733,6 +734,7 @@ function LeaPlusLC:ReloadCheck()
             or (LeaPlusLC["ManageDurability"] ~= LeaPlusDB["ManageDurability"])        -- Manage durability
             or (LeaPlusLC["ManageTracker"] ~= LeaPlusDB["ManageTracker"])            -- Manage Tracker
             or (LeaPlusLC["ManageVehicle"] ~= LeaPlusDB["ManageVehicle"])            -- Manage vehicle
+            or (LeaPlusLC["ManageGLF"] ~= LeaPlusDB["ManageGLF"])            -- Manage group loot frame
             or (LeaPlusLC["ClassColFrames"] ~= LeaPlusDB["ClassColFrames"])            -- Class colored frames
             or (LeaPlusLC["NoAlerts"] ~= LeaPlusDB["NoAlerts"])                -- Hide alerts
             or (LeaPlusLC["NoGryphons"] ~= LeaPlusDB["NoGryphons"])                -- Hide gryphons
@@ -4364,6 +4366,228 @@ function LeaPlusLC:Player()
 
         -- Hide drag frame when configuration panel is closed
         VehiclePanel:HookScript("OnHide", function()
+            dragframe:Hide()
+        end)
+
+    end
+
+    ----------------------------------------------------------------------
+    -- Manage group loot frame
+    ----------------------------------------------------------------------
+
+    if LeaPlusLC["ManageGLF"] == "On" and not LeaLockList["ManageGLF"] then
+
+        -- Create and manage container for grouplootframe
+        local GLFHolder = CreateFrame("Frame", nil, UIParent)
+        GLFHolder:SetPoint("TOP", UIParent, "TOP", 0, -15)
+        GLFHolder:SetSize(128, 128) -- проверить
+
+        local GLFContainer = _G.GroupLootFrame1
+        GLFContainer:ClearAllPoints()
+        GLFContainer:SetPoint('CENTER', GLFHolder)
+
+        hooksecurefunc(GLFContainer, 'SetPoint', function(self, void, b)
+            if b and (b ~= GLFHolder) then
+                -- Reset parent if it changes from GLFHolder
+                self:ClearAllPoints()
+                self:SetPoint('CENTER', GLFHolder)
+                self:SetParent(GLFHolder)
+            end
+        end)
+
+        -- Allow group loot frame to be moved
+        GLFHolder:SetMovable(true)
+        GLFHolder:SetUserPlaced(true)
+        GLFHolder:SetDontSavePosition(true)
+        GLFHolder:SetClampedToScreen(false)
+
+		-- Set group loot frame position at startup
+		GLFHolder:ClearAllPoints()
+		GLFHolder:SetPoint(LeaPlusLC["GLFA"], UIParent, LeaPlusLC["GLFR"], LeaPlusLC["GLFX"], LeaPlusLC["GLFY"])
+		-- Set scale and position for all group loot frames with reduced spacing
+		local spacing = -70 -- Adjust this value for desired spacing (negative for upward stacking)
+		for i = 1, 4 do
+			local frame = _G["GroupLootFrame" .. i]
+			frame:SetParent(GLFHolder)
+			frame:ClearAllPoints()
+			frame:SetPoint("CENTER", GLFHolder, "CENTER", 0, (i - 1) * spacing)
+			frame:SetScale(LeaPlusLC["GLFScale"])
+		end
+		GLFHolder:SetScale(LeaPlusLC["GLFScale"])
+		
+        -- Create drag frame
+        local dragframe = CreateFrame("FRAME", nil, nil)
+        dragframe:SetPoint("CENTER", GLFHolder, "CENTER", 0, 1)
+        dragframe:SetBackdropColor(0.0, 0.5, 1.0)
+        dragframe:SetBackdrop({ edgeFile = "Interface/Tooltips/UI-Tooltip-Border", tile = false, tileSize = 0, edgeSize = 16, insets = { left = 0, right = 0, top = 0, bottom = 0 } })
+        dragframe:SetToplevel(true)
+        dragframe:EnableMouse(true)
+        dragframe:Hide()
+        dragframe:SetScale(LeaPlusLC["GLFScale"])
+
+        dragframe.t = dragframe:CreateTexture()
+        dragframe.t:SetAllPoints()
+        dragframe.t:SetTexture(0.0, 1.0, 0.0, 0.5)
+        dragframe.t:SetAlpha(0.5)
+
+        dragframe.f = dragframe:CreateFontString(nil, 'ARTWORK', 'GameFontNormalLarge')
+        dragframe.f:SetPoint('CENTER', 0, 0)
+        dragframe.f:SetText(L["GroupLootFrame"])
+
+        -- Click handler
+        dragframe:SetScript("OnMouseDown", function(self, btn)
+            -- Start dragging if left clicked
+            if btn == "LeftButton" then
+                GLFHolder:StartMoving()
+            end
+        end)
+
+        dragframe:SetScript("OnMouseUp", function()
+            -- Save frame position
+            GLFHolder:StopMovingOrSizing()
+            LeaPlusLC["GLFA"], void, LeaPlusLC["GLFR"], LeaPlusLC["GLFX"], LeaPlusLC["GLFY"] = GLFHolder:GetPoint()
+            GLFHolder:SetMovable(true)
+            GLFHolder:ClearAllPoints()
+            GLFHolder:SetPoint(LeaPlusLC["GLFA"], UIParent, LeaPlusLC["GLFR"], LeaPlusLC["GLFX"], LeaPlusLC["GLFY"])
+        end)
+
+        -- Snap-to-grid
+        do
+            local frame, grid = dragframe, 10
+            local w, h = 120, 128
+            local xpos, ypos, scale, uiscale
+            frame:RegisterForDrag("RightButton")
+            frame:HookScript("OnDragStart", function()
+                frame:SetScript("OnUpdate", function()
+                    scale, uiscale = frame:GetScale(), UIParent:GetScale()
+                    xpos, ypos = GetCursorPosition()
+                    xpos = floor((xpos / scale / uiscale) / grid) * grid - w / 2
+                    ypos = ceil((ypos / scale / uiscale) / grid) * grid + h / 2
+                    GLFHolder:ClearAllPoints()
+                    GLFHolder:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", xpos, ypos)
+                end)
+            end)
+            frame:HookScript("OnDragStop", function()
+                frame:SetScript("OnUpdate", nil)
+                frame:GetScript("OnMouseUp")()
+            end)
+        end
+
+        -- Create configuration panel
+        local GLFPanel = LeaPlusLC:CreatePanel("Manage group loot frame", "GLFPanel")
+
+        LeaPlusLC:MakeTx(GLFPanel, "Scale", 16, -72)
+        LeaPlusLC:MakeSL(GLFPanel, "GLFScale", "Drag to set the groop loot frame scale.", 0.5, 2, 0.05, 16, -92, "%.2f")
+
+		-- Set scale when slider is changed
+		LeaPlusCB["GLFScale"]:HookScript("OnValueChanged", function()
+			-- Set scale and position for all group loot frames with reduced spacing
+			local spacing = -70 -- Adjust this value for desired spacing (negative for upward stacking)
+			for i = 1, 4 do
+				local frame = _G["GroupLootFrame" .. i]
+				frame:SetParent(GLFHolder)
+				frame:ClearAllPoints()
+				frame:SetPoint("CENTER", GLFHolder, "CENTER", 0, (i - 1) * spacing)
+				frame:SetScale(LeaPlusLC["GLFScale"])
+			end
+			GLFHolder:SetScale(LeaPlusLC["GLFScale"])
+			dragframe:SetScale(LeaPlusLC["GLFScale"])
+			-- Show formatted slider value
+			LeaPlusCB["GLFScale"].f:SetFormattedText("%.0f%%", LeaPlusLC["GLFScale"] * 100)
+		end)
+
+        -- Hide frame alignment grid with panel
+        GLFPanel:HookScript("OnHide", function()
+            LeaPlusLC.grid:Hide()
+        end)
+
+        -- Toggle grid button
+        local GLFToggleGridButton = LeaPlusLC:CreateButton("GLFToggleGridButton", GLFPanel, "Toggle Grid", "TOPLEFT", 16, -72, 0, 25, true, "Click to toggle the frame alignment grid.")
+        LeaPlusCB["GLFToggleGridButton"]:ClearAllPoints()
+        LeaPlusCB["GLFToggleGridButton"]:SetPoint("LEFT", GLFPanel.h, "RIGHT", 10, 0)
+        LeaPlusCB["GLFToggleGridButton"]:SetScript("OnClick", function()
+            if LeaPlusLC.grid:IsShown() then
+                LeaPlusLC.grid:Hide()
+            else
+                LeaPlusLC.grid:Show()
+            end
+        end)
+        GLFPanel:HookScript("OnHide", function()
+            if LeaPlusLC.grid then
+                LeaPlusLC.grid:Hide()
+            end
+        end)
+
+        -- Help button tooltip
+        GLFPanel.h.tiptext = L["Drag the frame overlay with the left button to position it freely or with the right button to position it using snap-to-grid."]
+
+        -- Back button handler
+        GLFPanel.b:SetScript("OnClick", function()
+            GLFPanel:Hide();
+            LeaPlusLC["PageF"]:Show();
+            LeaPlusLC["Page6"]:Show()
+            return
+        end)
+
+        -- Reset button handler
+        GLFPanel.r:SetScript("OnClick", function()
+
+            -- Reset position and scale
+            LeaPlusLC["GLFA"] = "BOTTOM"
+            LeaPlusLC["GLFR"] = "BOTTOM"
+            LeaPlusLC["GLFX"] = 0
+            LeaPlusLC["GLFY"] = 120
+            LeaPlusLC["GLFScale"] = 1
+            GLFHolder:ClearAllPoints()
+            GLFHolder:SetPoint(LeaPlusLC["GLFA"], UIParent, LeaPlusLC["GLFR"], LeaPlusLC["GLFX"], LeaPlusLC["GLFY"])
+
+            -- Refresh configuration panel
+            GLFPanel:Hide();
+            GLFPanel:Show()
+            dragframe:Show()
+
+            -- Show frame alignment grid
+            LeaPlusLC.grid:Show()
+
+        end)
+
+        -- Show configuration panel when options panel button is clicked
+        LeaPlusCB["ManageGLFButton"]:SetScript("OnClick", function()
+            if IsShiftKeyDown() and IsControlKeyDown() then
+                -- Preset profile
+                LeaPlusLC["GLFA"] = "BOTTOM"
+                LeaPlusLC["GLFR"] = "BOTTOM"
+                LeaPlusLC["GLFX"] = 0
+                LeaPlusLC["GLFY"] = 120
+                LeaPlusLC["GLFScale"] = 1
+                GLFHolder:ClearAllPoints()
+                GLFHolder:SetPoint(LeaPlusLC["GLFA"], UIParent, LeaPlusLC["GLFR"], LeaPlusLC["GLFX"], LeaPlusLC["GLFY"])
+                GLFHolder:SetScale(LeaPlusLC["GLFScale"])
+                GroupLootFrame1:SetScale(LeaPlusLC["GLFScale"])
+            else
+                -- Find out if the UI has a non-standard scale
+                if GetCVar("useuiscale") == "1" then
+                    LeaPlusLC["gscale"] = GetCVar("uiscale")
+                else
+                    LeaPlusLC["gscale"] = 1
+                end
+
+                -- Set drag frame size according to UI scale
+                dragframe:SetWidth(220 * LeaPlusLC["gscale"])
+                dragframe:SetHeight(70 * LeaPlusLC["gscale"])
+
+                -- Show configuration panel
+                GLFPanel:Show()
+                LeaPlusLC:HideFrames()
+                dragframe:Show()
+
+                -- Show frame alignment grid
+                LeaPlusLC.grid:Show()
+            end
+        end)
+
+        -- Hide drag frame when configuration panel is closed
+        GLFPanel:HookScript("OnHide", function()
             dragframe:Hide()
         end)
 
@@ -17637,8 +17861,8 @@ local function eventHandler(self, event, arg1, arg2, ...)
             --LeaPlusLC:LoadVarNum("CombineAddonsFrameScale", 1, 0.5, 2)			-- Manage CombineAddonsFrame scale
 
             LeaPlusLC:LoadVarChk("ManageTracker", "Off")                -- Manage Tracker
-            LeaPlusLC:LoadVarAnc("TrackerA", "TOPRIGHT")                -- Manage Tracker anchor
-            LeaPlusLC:LoadVarAnc("TrackerR", "TOPRIGHT")                -- Manage Tracker relative
+            LeaPlusLC:LoadVarAnc("TrackerA", "CENTER")                -- Manage Tracker anchor
+            LeaPlusLC:LoadVarAnc("TrackerR", "CENTER")                -- Manage Tracker relative
             LeaPlusLC:LoadVarNum("TrackerX", 0, -5000, 5000)            -- Manage Tracker position X
             LeaPlusLC:LoadVarNum("TrackerY", -170, -5000, 5000)        -- Manage Tracker position Y
             LeaPlusLC:LoadVarNum("TrackerScale", 1, 0.5, 2)            -- Manage Tracker scale
@@ -17649,6 +17873,13 @@ local function eventHandler(self, event, arg1, arg2, ...)
             LeaPlusLC:LoadVarNum("VehicleX", -100, -5000, 5000)            -- Manage vehicle position X
             LeaPlusLC:LoadVarNum("VehicleY", -192, -5000, 5000)            -- Manage vehicle position Y
             LeaPlusLC:LoadVarNum("VehicleScale", 1, 0.5, 2)                -- Manage vehicle scale
+
+            LeaPlusLC:LoadVarChk("ManageGLF", "Off")                -- Manage group loot frame
+            LeaPlusLC:LoadVarAnc("GLFA", "BOTTOM")                -- Manage vehicle anchor
+            LeaPlusLC:LoadVarAnc("GLFR", "BOTTOM")                -- Manage vehicle relative
+            LeaPlusLC:LoadVarNum("GLFX", 0, -5000, 5000)            -- Manage vehicle position X
+            LeaPlusLC:LoadVarNum("GLFY", 120, -5000, 5000)            -- Manage vehicle position Y
+            LeaPlusLC:LoadVarNum("GLFScale", 1, 0.5, 2)                -- Manage vehicle scale
 
             LeaPlusLC:LoadVarChk("ClassColFrames", "Off")                -- Class colored frames
             LeaPlusLC:LoadVarChk("ClassColPlayer", "On")                -- Class colored player frame
@@ -18099,6 +18330,13 @@ local function eventHandler(self, event, arg1, arg2, ...)
         LeaPlusDB["VehicleX"] = LeaPlusLC["VehicleX"]
         LeaPlusDB["VehicleY"] = LeaPlusLC["VehicleY"]
         LeaPlusDB["VehicleScale"] = LeaPlusLC["VehicleScale"]
+		
+        LeaPlusDB["ManageGLF"] = LeaPlusLC["ManageGLF"]
+        LeaPlusDB["GLFA"] = LeaPlusLC["GLFA"]
+        LeaPlusDB["GLFR"] = LeaPlusLC["GLFR"]
+        LeaPlusDB["GLFX"] = LeaPlusLC["GLFX"]
+        LeaPlusDB["GLFY"] = LeaPlusLC["GLFY"]
+        LeaPlusDB["GLFScale"] = LeaPlusLC["GLFScale"]
 
         LeaPlusDB["ManageTracker"] = LeaPlusLC["ManageTracker"]
         LeaPlusDB["TrackerA"] = LeaPlusLC["TrackerA"]
@@ -20546,6 +20784,13 @@ function LeaPlusLC:SlashFunc(str)
             LeaPlusDB["VehicleY"] = -192                    -- Manage vehicle position Y
             LeaPlusDB["VehicleScale"] = 1.00                -- Manage vehicle scale
 
+            LeaPlusDB["ManageGLF"] = "On"                -- Manage group loot frame
+            LeaPlusDB["GLFA"] = "BOTTOM"                -- Manage group loot frame anchor
+            LeaPlusDB["GLFR"] = "BOTTOM"                -- Manage group loot frame relative
+            LeaPlusDB["GLFX"] = 0                    -- Manage group loot frame position X
+            LeaPlusDB["GLFY"] = 120                    -- Manage group loot frame position Y
+            LeaPlusDB["GLFScale"] = 1.00                -- Manage group loot frame scale
+
             LeaPlusDB["ClassColFrames"] = "On"                -- Class colored frames
 
             LeaPlusDB["NoAlerts"] = "On"                    -- Hide alerts
@@ -20985,6 +21230,7 @@ LeaPlusLC:MakeCB(LeaPlusLC[pg], "ManageVehicle", "Manage vehicle", 146, -212, tr
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "ClassColFrames", "Class colored frames", 146, -232, true, "If checked, class coloring will be used in the player frame, target frame and focus frame.")
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "ManageTracker", "Manage Quest Tracker", 146, -252, true, "If checked, you will be able to change the position and scale of the Quest Tracker frame (the one under minimap).")
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "ManageDeBuffs", "Manage Debuffs", 146, -272, true, "If checked, you will be able to change the position and scale of the debuffs frame.", "* Requires you to have some debuff in order to change position.")
+LeaPlusLC:MakeCB(LeaPlusLC[pg], "ManageGLF", "Manage Grp Loot Frame", 146, -292, true, "If checked, you will be able to change the position and scale of group loot frame frame.")
 
 LeaPlusLC:MakeTx(LeaPlusLC[pg], "Visibility", 340, -72);
 LeaPlusLC:MakeCB(LeaPlusLC[pg], "NoAlerts", "Hide alerts", 340, -92, true, "If checked, alert frames will not be shown.|n|nWhen you earn an achievement, a message will be shown in chat instead.")
@@ -21001,7 +21247,7 @@ LeaPlusLC:CfgBtn("ManageVehicleButton", LeaPlusCB["ManageVehicle"])
 LeaPlusLC:CfgBtn("ClassColFramesBtn", LeaPlusCB["ClassColFrames"])
 LeaPlusLC:CfgBtn("ManageTrackerButton", LeaPlusCB["ManageTracker"])
 LeaPlusLC:CfgBtn("ManageDeBuffsButton", LeaPlusCB["ManageDeBuffs"])
-
+LeaPlusLC:CfgBtn("ManageGLFButton", LeaPlusCB["ManageGLF"])
 
 ----------------------------------------------------------------------
 -- 	LC7: System
