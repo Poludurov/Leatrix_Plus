@@ -4380,7 +4380,7 @@ function LeaPlusLC:Player()
         -- Create and manage container for grouplootframe
         local GLFHolder = CreateFrame("Frame", nil, UIParent)
         GLFHolder:SetPoint("TOP", UIParent, "TOP", 0, -15)
-        GLFHolder:SetSize(128, 128) -- проверить
+        GLFHolder:SetSize(128, 128)
 
         local GLFContainer = _G.GroupLootFrame1
         GLFContainer:ClearAllPoints()
@@ -4405,7 +4405,7 @@ function LeaPlusLC:Player()
 		GLFHolder:ClearAllPoints()
 		GLFHolder:SetPoint(LeaPlusLC["GLFA"], UIParent, LeaPlusLC["GLFR"], LeaPlusLC["GLFX"], LeaPlusLC["GLFY"])
 		-- Set scale and position for all group loot frames with reduced spacing
-		local spacing = -70 -- Adjust this value for desired spacing (negative for upward stacking)
+		local spacing = 70 -- Adjust this value for desired spacing (negative for upward stacking)
 		for i = 1, 4 do
 			local frame = _G["GroupLootFrame" .. i]
 			frame:SetParent(GLFHolder)
@@ -4482,7 +4482,7 @@ function LeaPlusLC:Player()
 		-- Set scale when slider is changed
 		LeaPlusCB["GLFScale"]:HookScript("OnValueChanged", function()
 			-- Set scale and position for all group loot frames with reduced spacing
-			local spacing = -70 -- Adjust this value for desired spacing (negative for upward stacking)
+			local spacing = 70 -- Adjust this value for desired spacing (negative for upward stacking)
 			for i = 1, 4 do
 				local frame = _G["GroupLootFrame" .. i]
 				frame:SetParent(GLFHolder)
@@ -17861,8 +17861,8 @@ local function eventHandler(self, event, arg1, arg2, ...)
             --LeaPlusLC:LoadVarNum("CombineAddonsFrameScale", 1, 0.5, 2)			-- Manage CombineAddonsFrame scale
 
             LeaPlusLC:LoadVarChk("ManageTracker", "Off")                -- Manage Tracker
-            LeaPlusLC:LoadVarAnc("TrackerA", "CENTER")                -- Manage Tracker anchor
-            LeaPlusLC:LoadVarAnc("TrackerR", "CENTER")                -- Manage Tracker relative
+            LeaPlusLC:LoadVarAnc("TrackerA", "TOPRIGHT")                -- Manage Tracker anchor
+            LeaPlusLC:LoadVarAnc("TrackerR", "TOPRIGHT")                -- Manage Tracker relative
             LeaPlusLC:LoadVarNum("TrackerX", 0, -5000, 5000)            -- Manage Tracker position X
             LeaPlusLC:LoadVarNum("TrackerY", -170, -5000, 5000)        -- Manage Tracker position Y
             LeaPlusLC:LoadVarNum("TrackerScale", 1, 0.5, 2)            -- Manage Tracker scale
