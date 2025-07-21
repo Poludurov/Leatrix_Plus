@@ -10705,7 +10705,7 @@ function LeaPlusLC:Player()
 			update()
 		end
 
-		-- Master Looter Menu
+				-- Master Looter Menu
 		local function ILF_InitializeMenu()
 			local candidate, info
 			local classesInRaid = WeakTable({})
@@ -10715,8 +10715,8 @@ function LeaPlusLC:Player()
 				for i = 1, 40 do
 					candidate = GetMasterLootCandidate(i)
 					if candidate then
-						local class = select(2, UnitClass(candidate))
-						if class == UIDROPDOWNMENU_MENU_VALUE then
+						local _, class = UnitClass(candidate)
+						if class and class == UIDROPDOWNMENU_MENU_VALUE then
 							info = UIDropDownMenu_CreateInfo()
 							info.text = candidate
 							info.colorCode = hexColors[class] or hexColors.UNKNOWN
@@ -10742,27 +10742,30 @@ function LeaPlusLC:Player()
 					candidate = GetMasterLootCandidate(i)
 					if candidate then
 						local cname, class = UnitClass(candidate)
-						classesInRaid[class] = cname
+						if class and cname then
+							classesInRaid[class] = cname
+						end
 					end
 				end
 
-				for k, v in pairs(classesInRaid) do
+				for class, cname in pairs(classesInRaid) do
 					info = UIDropDownMenu_CreateInfo()
-					info.text = v
-					info.colorCode = hexColors[k] or hexColors.UNKNOWN
+					info.text = cname
+					info.colorCode = hexColors[class] or hexColors.UNKNOWN
 					info.textHeight = 12
 					info.hasArrow = true
 					info.notCheckable = true
-					info.value = k
+					info.value = class
 					UIDropDownMenu_AddButton(info)
 				end
 			else
 				for i = 1, MAX_PARTY_MEMBERS + 1 do
 					candidate = GetMasterLootCandidate(i)
 					if candidate then
+						local _, class = UnitClass(candidate)
 						info = UIDropDownMenu_CreateInfo()
 						info.text = candidate
-						info.colorCode = hexColors[select(2, UnitClass(candidate))] or hexColors.UNKNOWN
+						info.colorCode = hexColors[class] or hexColors.UNKNOWN
 						info.textHeight = 12
 						info.value = i
 						info.notCheckable = true
@@ -10783,7 +10786,7 @@ function LeaPlusLC:Player()
 				info.colorCode = "|cffffffff"
 				info.textHeight = 12
 				info.value = randoms[random(1, #randoms)]
-				info.notCheckable = 1
+				info.notCheckable = true
 				info.text = "Random"
 				info.func = GroupLootDropDown_GiveLoot
 				UIDropDownMenu_AddButton(info)
@@ -10793,11 +10796,12 @@ function LeaPlusLC:Player()
 			for i = 1, 40 do
 				candidate = GetMasterLootCandidate(i)
 				if candidate and candidate == UnitName("player") then
+					local _, class = UnitClass("player")
 					info = UIDropDownMenu_CreateInfo()
-					info.colorCode = hexColors[select(2, UnitClass("player"))] or hexColors.UNKNOWN
+					info.colorCode = hexColors[class] or hexColors.UNKNOWN
 					info.textHeight = 12
 					info.value = i
-					info.notCheckable = 1
+					info.notCheckable = true
 					info.text = "Self Loot"
 					info.func = GroupLootDropDown_GiveLoot
 					UIDropDownMenu_AddButton(info)
@@ -10805,6 +10809,7 @@ function LeaPlusLC:Player()
 				end
 			end
 		end
+
 
 		-- LootFrame_Show replacement
 		local function ILF_LootFrame_Show(self, ...)
